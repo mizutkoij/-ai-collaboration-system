@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 # Import our modules
-from design_system import DesignSystem
+from design_system import DesignCollaborationSystem as DesignSystem
 from implementation_system import ImplementationSystem
 from conversation_engine import ConversationEngine
 from file_generator import FileGenerator

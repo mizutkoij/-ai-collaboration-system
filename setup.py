@@ -16,10 +16,10 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="ai-collaboration-system",
-    version="1.1.0",
+    version="1.2.0",
     author="AI Collaboration Team",
     author_email="contact@ai-collaboration.dev",
-    description="Automated AI-to-AI Programming System",
+    description="3-way AI Collaboration System - ChatGPT + Claude + Gemini",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/ai-collaboration-system",
@@ -56,6 +56,7 @@ setup(
     entry_points={
         "console_scripts": [
             "ai-collab=ai_collaboration_core:main",
+            "ai-webui=webui_server:main",
             "ai-design=design_system:main",
             "ai-implement=implementation_system:main",
             "ai-monitor=conversation_engine:main",

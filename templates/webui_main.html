@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Collaboration System - WebUI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+
+        .main-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            padding: 20px 30px;
+            border-bottom: 1px solid #e1e5e9;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .chat-container {
+            flex: 1;
+            padding: 20px 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            border-radius: 12px;
+            max-width: 85%;
+            line-height: 1.6;
+            position: relative;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message.system {
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            align-self: center;
+            text-align: center;
+            font-style: italic;
+            max-width: 100%;
+        }
+
+        .message.chatgpt {
+            background: linear-gradient(135deg, #10a37f, #0d8f6c);
+            color: white;
+            align-self: flex-start;
+        }
+
+        .message.claude {
+            background: linear-gradient(135deg, #ff6b35, #e55a2b);
+            color: white;
+            align-self: flex-start;
+        }
+
+        .message.gemini {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            align-self: flex-start;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            align-self: center;
+            max-width: 100%;
+        }
+
+        .message-header {
+            font-weight: 600;
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timestamp {
+            font-size: 11px;
+            opacity: 0.6;
+            position: absolute;
+            bottom: -18px;
+            right: 10px;
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            border-top: 1px solid #e1e5e9;
+            background: #f8f9fa;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+        }
+
+        .input-wrapper textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+            line-height: 1.4;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: white;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .send-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .sidebar h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .conversation-list {
+            list-style: none;
+        }
+
+        .conversation-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .conversation-item:hover {
+            background: #e9ecef;
+            border-left-color: #667eea;
+        }
+
+        .conversation-item.active {
+            background: #667eea;
+            color: white;
+            border-left-color: #764ba2;
+        }
+
+        .conversation-title {
+            font-weight: 500;
+            font-size: 14px;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .conversation-meta {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .new-conversation {
+            width: 100%;
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .new-conversation:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .decision-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .decision-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .decision-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .decision-question {
+            font-size: 16px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            color: #555;
+        }
+
+        .decision-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .decision-option {
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .decision-option:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .decision-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .decision-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .decision-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .decision-button.primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .decision-button.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #28a745;
+        }
+
+        .status-disconnected {
+            background: #dc3545;
+        }
+
+        .status-processing {
+            background: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Model Selection Styles */
+        .model-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .model-section h4 {
+            color: #495057;
+            font-size: 14px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .model-provider {
+            margin-bottom: 15px;
+        }
+
+        .model-provider-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .model-info {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .api-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding: 8px;
+            background: #e9ecef;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .api-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .api-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .welcome-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .welcome-subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .start-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                height: 100vh;
+            }
+            
+            .sidebar {
+                order: 2;
+                max-height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- サイドバー -->
+        <div class="sidebar">
+            <button class="new-conversation" onclick="startNewConversation()">
+                + 新しい会話を開始
+            </button>
+            
+            <!-- モデル選択セクション -->
+            <div class="model-section">
+                <h4>AIモデル選択</h4>
+                
+                <div class="model-provider">
+                    <label class="model-provider-label">ChatGPT</label>
+                    <select class="model-select" id="openaiModel" onchange="updateModelSelection()">
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                    <div class="model-info">高品質な推論と創造性</div>
+                </div>
+                
+                <div class="model-provider">
+                    <label class="model-provider-label">Claude</label>
+                    <select class="model-select" id="anthropicModel" onchange="updateModelSelection()">
+                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    </select>
+                    <div class="model-info">優秀なコーディングと分析</div>
+                </div>
+                
+                <div class="model-provider">
+                    <label class="model-provider-label">Gemini</label>
+                    <select class="model-select" id="geminiModel" onchange="updateModelSelection()">
+                        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                        <option value="gemini-pro">Gemini Pro</option>
+                    </select>
+                    <div class="model-info">高速で多機能なAI</div>
+                </div>
+                
+                <div class="api-status" id="apiStatus">
+                    <span>API接続:</span>
+                    <span id="apiStatusText">確認中...</span>
+                </div>
+            </div>
+            
+            <h3>会話履歴</h3>
+            <ul class="conversation-list" id="conversationList">
+                <!-- 会話履歴がここに表示される -->
+            </ul>
+        </div>
+
+        <!-- メインコンテンツ -->
+        <div class="main-content">
+            <div class="header">
+                <h1>🤖 AI Collaboration System</h1>
+                <p>
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="statusText">接続待機中...</span>
+                </p>
+            </div>
+
+            <div class="chat-container" id="chatContainer">
+                <!-- ウェルカム画面 -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-title">AI協調プログラミングシステム</div>
+                    <div class="welcome-subtitle">
+                        あなたのアイデアを、AIが協力して完全なプログラムに変換します。<br>
+                        設計から実装まで、全てのプロセスを対話的に進行します。
+                    </div>
+                    <button class="start-button" onclick="startNewConversation()">
+                        今すぐ始める
+                    </button>
+                </div>
+            </div>
+
+            <div class="input-area" id="inputArea" style="display: none;">
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="プロジェクトのアイデアを入力してください..."
+                            rows="2"
+                            onkeydown="handleKeyDown(event)"></textarea>
+                    </div>
+                    <button class="send-button" id="sendButton" onclick="sendMessage()">
+                        送信
+                    </button>
+                </div>
+                <div class="progress-bar" id="progressBar" style="display: none;">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 決定モーダル -->
+    <div class="decision-modal" id="decisionModal">
+        <div class="decision-content">
+            <div class="decision-title">ユーザー判断が必要です</div>
+            <div class="decision-question" id="decisionQuestion"></div>
+            <div class="decision-options" id="decisionOptions"></div>
+            <div class="decision-buttons">
+                <button class="decision-button secondary" onclick="closeDecisionModal()">
+                    キャンセル
+                </button>
+                <button class="decision-button primary" onclick="submitDecision()">
+                    決定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let currentConversationId = null;
+        let websocket = null;
+        let currentDecisionId = null;
+        let selectedDecisionOption = null;
+        let selectedModels = {
+            openai: 'gpt-4',
+            anthropic: 'claude-3-sonnet-20240229',
+            gemini: 'gemini-1.5-pro'
+        };
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConversationHistory();
+            updateStatus('disconnected');
+            initializeModelSelection();
+            checkApiStatus();
+        });
+
+        // WebSocket接続
+        function connectWebSocket(conversationId) {
+            if (websocket) {
+                websocket.close();
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/${conversationId}`;
+            
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = function(event) {
+                updateStatus('connected');
+                console.log('WebSocket connected');
+            };
+            
+            websocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            websocket.onclose = function(event) {
+                updateStatus('disconnected');
+                console.log('WebSocket disconnected');
+            };
+            
+            websocket.onerror = function(error) {
+                updateStatus('error');
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // WebSocketメッセージ処理
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'conversation_data':
+                    displayConversation(data.data);
+                    break;
+                    
+                case 'message_received':
+                    console.log('Message confirmed:', data.content);
+                    break;
+                    
+                case 'ai_process_started':
+                    addMessage('system', data.content);
+                    updateStatus('processing');
+                    showProgress(true);
+                    break;
+                    
+                case 'progress_update':
+                    addMessage('system', `[${data.phase}] ${data.content}`);
+                    updateProgress(data.phase);
+                    break;
+                    
+                case 'user_decision_required':
+                    showDecisionModal(data);
+                    break;
+                    
+                case 'decision_recorded':
+                    addMessage('system', data.content);
+                    break;
+                    
+                case 'ai_process_completed':
+                    addMessage('system', 'AI協調作業が完了しました！');
+                    updateStatus('connected');
+                    showProgress(false);
+                    displayResults(data.results);
+                    break;
+                    
+                case 'error':
+                    addMessage('error', data.content);
+                    updateStatus('error');
+                    showProgress(false);
+                    break;
+            }
+        }
+
+        // 新しい会話を開始
+        async function startNewConversation() {
+            const projectRequest = prompt('作成したいプロジェクトを説明してください:');
+            
+            if (!projectRequest) return;
+            
+            try {
+                const response = await fetch('/api/conversations/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_request: projectRequest,
+                        user_id: 'default'
+                    })
+                });
+                
+                const data = await response.json();
+                currentConversationId = data.conversation_id;
+                
+                // UI更新
+                hideWelcomeScreen();
+                showInputArea();
+                connectWebSocket(currentConversationId);
+                
+                // 初期メッセージを表示
+                addMessage('user', projectRequest);
+                addMessage('system', 'プロジェクトを開始します...');
+                
+                // AI処理を開始
+                websocket.send(JSON.stringify({
+                    type: 'start_ai_collaboration',
+                    project_request: projectRequest,
+                    mode: 'full'
+                }));
+                
+                // 履歴を更新
+                loadConversationHistory();
+                
+            } catch (error) {
+                console.error('Error starting conversation:', error);
+                alert('会話の開始に失敗しました');
+            }
+        }
+
+        // メッセージ送信
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !websocket || !currentConversationId) return;
+            
+            // メッセージを表示
+            addMessage('user', message);
+            
+            // WebSocket経由で送信
+            websocket.send(JSON.stringify({
+                type: 'user_message',
+                content: message,
+                models: selectedModels
+            }));
+            
+            // 入力をクリア
+            input.value = '';
+            input.style.height = 'auto';
+        }
+
+        // メッセージを画面に追加
+        function addMessage(type, content, timestamp = null) {
+            const container = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            let headerText = '';
+            switch(type) {
+                case 'user': headerText = 'あなた'; break;
+                case 'system': headerText = 'システム'; break;
+                case 'chatgpt': headerText = 'ChatGPT o3'; break;
+                case 'claude': headerText = 'Claude Code'; break;
+                case 'gemini': headerText = 'Gemini AI'; break;
+                case 'error': headerText = 'エラー'; break;
+            }
+            
+            if (headerText) {
+                messageDiv.innerHTML = `
+                    <div class="message-header">${headerText}</div>
+                    <div>${content}</div>
+                    <div class="timestamp">${timestamp || new Date().toLocaleTimeString()}</div>
+                `;
+            } else {
+                messageDiv.innerHTML = content + `<div class="timestamp">${timestamp || new Date().toLocaleTimeString()}</div>`;
+            }
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 決定モーダルを表示
+        function showDecisionModal(data) {
+            currentDecisionId = data.decision_id;
+            
+            document.getElementById('decisionQuestion').textContent = data.question;
+            
+            const optionsContainer = document.getElementById('decisionOptions');
+            optionsContainer.innerHTML = '';
+            
+            if (data.options && data.options.length > 0) {
+                data.options.forEach((option, index) => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'decision-option';
+                    optionDiv.textContent = option;
+                    optionDiv.onclick = () => selectDecisionOption(optionDiv, option);
+                    
+                    if (option === data.default) {
+                        optionDiv.classList.add('selected');
+                        selectedDecisionOption = option;
+                    }
+                    
+                    optionsContainer.appendChild(optionDiv);
+                });
+            } else {
+                // テキスト入力
+                const inputDiv = document.createElement('textarea');
+                inputDiv.className = 'decision-option';
+                inputDiv.placeholder = '回答を入力してください...';
+                inputDiv.rows = 3;
+                inputDiv.onchange = (e) => { selectedDecisionOption = e.target.value; };
+                optionsContainer.appendChild(inputDiv);
+            }
+            
+            document.getElementById('decisionModal').style.display = 'flex';
+        }
+
+        // 決定オプション選択
+        function selectDecisionOption(element, option) {
+            // 他の選択を解除
+            document.querySelectorAll('.decision-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // 選択状態にする
+            element.classList.add('selected');
+            selectedDecisionOption = option;
+        }
+
+        // 決定を送信
+        function submitDecision() {
+            if (!selectedDecisionOption || !currentDecisionId) return;
+            
+            websocket.send(JSON.stringify({
+                type: 'user_decision',
+                decision_id: currentDecisionId,
+                answer: selectedDecisionOption
+            }));
+            
+            closeDecisionModal();
+        }
+
+        // 決定モーダルを閉じる
+        function closeDecisionModal() {
+            document.getElementById('decisionModal').style.display = 'none';
+            currentDecisionId = null;
+            selectedDecisionOption = null;
+        }
+
+        // 会話履歴を読み込み
+        async function loadConversationHistory() {
+            try {
+                const response = await fetch('/api/conversations?user_id=default');
+                const data = await response.json();
+                
+                const listContainer = document.getElementById('conversationList');
+                listContainer.innerHTML = '';
+                
+                data.conversations.forEach(conversation => {
+                    const li = document.createElement('li');
+                    li.className = 'conversation-item';
+                    li.onclick = () => loadConversation(conversation.id);
+                    
+                    li.innerHTML = `
+                        <div class="conversation-title">${conversation.project_request}</div>
+                        <div class="conversation-meta">
+                            ${new Date(conversation.created_at).toLocaleDateString()} 
+                            - ${conversation.message_count} メッセージ
+                        </div>
+                    `;
+                    
+                    listContainer.appendChild(li);
+                });
+                
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        // 特定の会話を読み込み
+        async function loadConversation(conversationId) {
+            try {
+                currentConversationId = conversationId;
+                hideWelcomeScreen();
+                showInputArea();
+                connectWebSocket(conversationId);
+                
+                // 会話データを要求
+                websocket.onopen = function() {
+                    websocket.send(JSON.stringify({
+                        type: 'get_conversation'
+                    }));
+                };
+                
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+            }
+        }
+
+        // 会話を表示
+        function displayConversation(conversationData) {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+            
+            conversationData.messages.forEach(message => {
+                addMessage(message.type, message.content, new Date(message.timestamp).toLocaleTimeString());
+            });
+        }
+
+        // UI状態管理
+        function hideWelcomeScreen() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+        }
+
+        function showInputArea() {
+            document.getElementById('inputArea').style.display = 'block';
+        }
+
+        function updateStatus(status) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+            
+            indicator.className = 'status-indicator';
+            
+            switch(status) {
+                case 'connected':
+                    indicator.classList.add('status-connected');
+                    text.textContent = '接続済み';
+                    break;
+                case 'processing':
+                    indicator.classList.add('status-processing');
+                    text.textContent = 'AI処理中...';
+                    break;
+                case 'error':
+                    indicator.classList.add('status-disconnected');
+                    text.textContent = 'エラー';
+                    break;
+                default:
+                    indicator.classList.add('status-disconnected');
+                    text.textContent = '未接続';
+            }
+        }
+
+        function showProgress(show) {
+            document.getElementById('progressBar').style.display = show ? 'block' : 'none';
+        }
+
+        function updateProgress(phase) {
+            const phases = ['initialization', 'design', 'implementation', 'file_generation'];
+            const progress = ((phases.indexOf(phase) + 1) / phases.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // 結果表示
+        function displayResults(results) {
+            const content = `
+                <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                    <strong>🎉 プロジェクト完成！</strong><br>
+                    ステータス: ${results.status}<br>
+                    完了フェーズ: ${Object.keys(results.phases || {}).join(', ')}<br>
+                    ${results.interaction_log ? `対話ログ: ${results.interaction_log}` : ''}
+                </div>
+            `;
+            
+            addMessage('system', content);
+        }
+
+        // キーボードイベント
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // モデル選択機能
+        function initializeModelSelection() {
+            // ローカルストレージから保存された設定を読み込み
+            const savedModels = localStorage.getItem('selectedModels');
+            if (savedModels) {
+                selectedModels = JSON.parse(savedModels);
+                document.getElementById('openaiModel').value = selectedModels.openai;
+                document.getElementById('anthropicModel').value = selectedModels.anthropic;
+                document.getElementById('geminiModel').value = selectedModels.gemini;
+            }
+        }
+
+        function updateModelSelection() {
+            // 選択されたモデルを更新
+            selectedModels.openai = document.getElementById('openaiModel').value;
+            selectedModels.anthropic = document.getElementById('anthropicModel').value;
+            selectedModels.gemini = document.getElementById('geminiModel').value;
+            
+            // ローカルストレージに保存
+            localStorage.setItem('selectedModels', JSON.stringify(selectedModels));
+            
+            console.log('モデル選択が更新されました:', selectedModels);
+            
+            // バックエンドに選択されたモデルを送信
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({
+                    type: 'model_selection',
+                    models: selectedModels
+                }));
+            }
+        }
+
+        function checkApiStatus() {
+            // API接続状態をチェック
+            fetch('/api/check-api-status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('apiStatus');
+                    const statusText = document.getElementById('apiStatusText');
+                    
+                    const connectedCount = [data.openai, data.anthropic, data.gemini].filter(Boolean).length;
+                    
+                    if (connectedCount === 3) {
+                        statusElement.className = 'api-status connected';
+                        statusText.textContent = '全接続済み';
+                    } else if (connectedCount >= 2) {
+                        statusElement.className = 'api-status connected';
+                        statusText.textContent = '接続済み';
+                    } else if (connectedCount >= 1) {
+                        statusElement.className = 'api-status';
+                        statusText.textContent = '一部接続';
+                    } else {
+                        statusElement.className = 'api-status disconnected';
+                        statusText.textContent = '未接続';
+                    }
+                })
+                .catch(error => {
+                    console.log('API状態チェック:', error);
+                    const statusElement = document.getElementById('apiStatus');
+                    const statusText = document.getElementById('apiStatusText');
+                    statusElement.className = 'api-status';
+                    statusText.textContent = '確認中...';
+                });
+        }
+
+        function getSelectedModels() {
+            return selectedModels;
+        }
+
+        // テキストエリア自動リサイズ
+        document.getElementById('messageInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+    </script>
+</body>
+</html>

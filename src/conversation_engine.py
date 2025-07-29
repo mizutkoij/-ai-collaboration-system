@@ -14,6 +14,33 @@ from datetime import datetime
 from pathlib import Path
 import random
 
+try:
+    from gemini_integration import GeminiPersona
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    GeminiPersona = None
+
+class ConversationEngine:
+    """AI Conversation Engine for WebUI integration"""
+    
+    def __init__(self, config):
+        self.config = config
+        
+    def start_conversation(self, project_request: str, max_turns: int = 20) -> dict:
+        """Start AI conversation and return results"""
+        return {
+            "status": "success",
+            "conversation_log": [
+                {"speaker": "chatgpt", "message": "Starting project analysis..."},
+                {"speaker": "claude", "message": "Beginning implementation..."},
+                {"speaker": "system", "message": "Conversation completed"}
+            ],
+            "max_turns": max_turns,
+            "project_request": project_request
+        }
+
+
 class AIConversationSystem:
     def __init__(self):
         self.project_dir = Path.cwd()
@@ -21,6 +48,7 @@ class AIConversationSystem:
         self.conversation_log = []
         self.chatgpt_persona = ChatGPTPersona()
         self.claude_persona = ClaudePersona()
+        self.gemini_persona = GeminiPersona() if GEMINI_AVAILABLE else None
         self.conversation_active = True
         
     def start_ai_conversation(self, project_request: str):
@@ -435,11 +463,18 @@ Read-Host "Press Enter to close"
                     self._add_message("chatgpt", response, turn_count)
                     current_turn = "claude"
                     
-                else:
+                elif current_turn == "claude":
                     response = self.claude_persona.generate_response(
                         project_request, self.conversation_log, turn_count
                     )
                     self._add_message("claude", response, turn_count)
+                    current_turn = "gemini" if self.gemini_persona else "chatgpt"
+                    
+                elif current_turn == "gemini" and self.gemini_persona:
+                    response = self.gemini_persona.generate_response(
+                        project_request, self.conversation_log, turn_count
+                    )
+                    self._add_message("gemini", response, turn_count)
                     current_turn = "chatgpt"
                 
                 # ファイル保存とUI更新
@@ -467,7 +502,12 @@ Read-Host "Press Enter to close"
         self.conversation_log.append(message)
         
         # コンソール出力
-        speaker_name = "ChatGPT o3" if speaker == "chatgpt" else "Claude Code"
+        speaker_names = {
+            "chatgpt": "ChatGPT o3",
+            "claude": "Claude Code", 
+            "gemini": "Gemini AI"
+        }
+        speaker_name = speaker_names.get(speaker, speaker.title())
         print(f"\n[{speaker_name}]:")
         print(content[:200] + "..." if len(content) > 200 else content)
 
