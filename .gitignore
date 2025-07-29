@@ -137,3 +137,9 @@ Thumbs.db
 *.html
 !templates/*.html
 !static/*.html
+
+# Large executable files
+*.exe
+*.zip
+AI_Collaboration_System_Portable/
+AI_Collaboration_System_v*/
