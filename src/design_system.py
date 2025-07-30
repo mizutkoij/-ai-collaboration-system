@@ -15,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 
 class DesignCollaborationSystem:
-    def __init__(self):
+    def __init__(self, config=None):
+        self.config = config
         self.project_dir = Path.cwd()
         self.design_session_file = self.project_dir / "design_session.json"
         self.implementation_file = self.project_dir / "ai_implementation.json"

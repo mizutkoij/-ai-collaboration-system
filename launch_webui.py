@@ -18,12 +18,12 @@ try:
         print("AI Collaboration System - WebUI")
         print("=" * 50)
         print("Starting web interface...")
-        print("Access at: http://localhost:8080")
+        print("Access at: http://localhost:8082")
         print("Press Ctrl+C to stop")
         print("")
         
         server = WebUIServer()
-        server.run(host="localhost", port=8080)
+        server.run(host="localhost", port=8082)
     
     if __name__ == "__main__":
         main()

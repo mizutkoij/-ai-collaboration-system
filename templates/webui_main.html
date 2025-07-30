@@ -117,6 +117,13 @@
             align-self: flex-start;
         }
 
+        .message.offline {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            align-self: flex-start;
+            border-left: 4px solid #28a745;
+        }
+
         .message.error {
             background: #f8d7da;
             color: #721c24;
@@ -417,6 +424,34 @@
             text-align: center;
         }
 
+        .collaboration-mode {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .collaboration-mode input[type="radio"] {
+            margin-right: 8px;
+        }
+
+        .collaboration-mode label {
+            font-size: 13px;
+            color: #495057;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .collaboration-mode label:hover {
+            color: #667eea;
+        }
+
+        .model-provider.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         .model-provider {
             margin-bottom: 15px;
         }
@@ -537,11 +572,32 @@
                 + 新しい会話を開始
             </button>
             
-            <!-- モデル選択セクション -->
+            <!-- 協調モード選択 -->
             <div class="model-section">
+                <h4>AI協調モード</h4>
+                <div class="collaboration-mode">
+                    <input type="radio" id="mode-all" name="aiMode" value="all" checked onchange="updateAIMode()">
+                    <label for="mode-all">3-way協調 (推奨)</label>
+                    
+                    <input type="radio" id="mode-gpt-only" name="aiMode" value="gpt-only" onchange="updateAIMode()">
+                    <label for="mode-gpt-only">ChatGPTのみ</label>
+                    
+                    <input type="radio" id="mode-claude-only" name="aiMode" value="claude-only" onchange="updateAIMode()">
+                    <label for="mode-claude-only">Claudeのみ</label>
+                    
+                    <input type="radio" id="mode-gemini-only" name="aiMode" value="gemini-only" onchange="updateAIMode()">
+                    <label for="mode-gemini-only">Geminiのみ</label>
+                    
+                    <input type="radio" id="mode-offline" name="aiMode" value="offline" onchange="updateAIMode()">
+                    <label for="mode-offline">オフライン (API不要)</label>
+                </div>
+            </div>
+
+            <!-- モデル選択セクション -->
+            <div class="model-section" id="modelSelection">
                 <h4>AIモデル選択</h4>
                 
-                <div class="model-provider">
+                <div class="model-provider" id="openaiProvider">
                     <label class="model-provider-label">ChatGPT</label>
                     <select class="model-select" id="openaiModel" onchange="updateModelSelection()">
                         <option value="gpt-4">GPT-4</option>
@@ -551,7 +607,7 @@
                     <div class="model-info">高品質な推論と創造性</div>
                 </div>
                 
-                <div class="model-provider">
+                <div class="model-provider" id="anthropicProvider">
                     <label class="model-provider-label">Claude</label>
                     <select class="model-select" id="anthropicModel" onchange="updateModelSelection()">
                         <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
@@ -561,7 +617,7 @@
                     <div class="model-info">優秀なコーディングと分析</div>
                 </div>
                 
-                <div class="model-provider">
+                <div class="model-provider" id="geminiProvider">
                     <label class="model-provider-label">Gemini</label>
                     <select class="model-select" id="geminiModel" onchange="updateModelSelection()">
                         <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
@@ -570,6 +626,7 @@
                     </select>
                     <div class="model-info">高速で多機能なAI</div>
                 </div>
+            </div>
                 
                 <div class="api-status" id="apiStatus">
                     <span>API接続:</span>
@@ -655,6 +712,8 @@
             anthropic: 'claude-3-sonnet-20240229',
             gemini: 'gemini-1.5-pro'
         };
+        
+        let aiMode = 'all';
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -726,11 +785,35 @@
                     addMessage('system', data.content);
                     break;
                     
+                case 'ai_response':
+                    addMessage(data.speaker, data.content);
+                    if (data.simulated) {
+                        addMessage('system', '(シミュレーション応答)');
+                    }
+                    break;
+                    
+                case 'ai_process_complete':
+                    if (data.mode === 'offline') {
+                        addMessage('system', 'オフラインシミュレーションが完了しました！');
+                    } else {
+                        addMessage('system', 'AI協調作業が完了しました！');
+                    }
+                    updateStatus('connected');
+                    showProgress(false);
+                    if (data.results) {
+                        displayResults(data.results);
+                    }
+                    break;
+                    
                 case 'ai_process_completed':
                     addMessage('system', 'AI協調作業が完了しました！');
                     updateStatus('connected');
                     showProgress(false);
                     displayResults(data.results);
+                    break;
+                    
+                case 'system_message':
+                    addMessage('system', data.content);
                     break;
                     
                 case 'error':
@@ -801,7 +884,8 @@
             websocket.send(JSON.stringify({
                 type: 'user_message',
                 content: message,
-                models: selectedModels
+                models: selectedModels,
+                ai_mode: aiMode
             }));
             
             // 入力をクリア
@@ -819,6 +903,7 @@
             switch(type) {
                 case 'user': headerText = 'あなた'; break;
                 case 'system': headerText = 'システム'; break;
+                case 'offline': headerText = 'オフラインAI'; break;
                 case 'chatgpt': headerText = 'ChatGPT o3'; break;
                 case 'claude': headerText = 'Claude Code'; break;
                 case 'gemini': headerText = 'Gemini AI'; break;
@@ -1043,6 +1128,66 @@
                 document.getElementById('anthropicModel').value = selectedModels.anthropic;
                 document.getElementById('geminiModel').value = selectedModels.gemini;
             }
+            
+            // 保存されたAIモードを復元
+            const savedMode = localStorage.getItem('aiMode');
+            if (savedMode) {
+                aiMode = savedMode;
+                const modeRadio = document.querySelector(`input[name="aiMode"][value="${aiMode}"]`);
+                if (modeRadio) {
+                    modeRadio.checked = true;
+                    updateAIMode();
+                }
+            }
+        }
+
+        function updateAIMode() {
+            // AIモードを更新
+            const modeInputs = document.querySelectorAll('input[name="aiMode"]');
+            for (let input of modeInputs) {
+                if (input.checked) {
+                    aiMode = input.value;
+                    break;
+                }
+            }
+            
+            // プロバイダーの表示を更新
+            const openaiProvider = document.getElementById('openaiProvider');
+            const anthropicProvider = document.getElementById('anthropicProvider');
+            const geminiProvider = document.getElementById('geminiProvider');
+            const modelSelection = document.getElementById('modelSelection');
+            
+            // すべてのプロバイダーを有効化
+            openaiProvider.classList.remove('disabled');
+            anthropicProvider.classList.remove('disabled');
+            geminiProvider.classList.remove('disabled');
+            
+            switch(aiMode) {
+                case 'gpt-only':
+                    anthropicProvider.classList.add('disabled');
+                    geminiProvider.classList.add('disabled');
+                    break;
+                case 'claude-only':
+                    openaiProvider.classList.add('disabled');
+                    geminiProvider.classList.add('disabled');
+                    break;
+                case 'gemini-only':
+                    openaiProvider.classList.add('disabled');
+                    anthropicProvider.classList.add('disabled');
+                    break;
+                case 'offline':
+                    modelSelection.style.display = 'none';
+                    break;
+                case 'all':
+                default:
+                    modelSelection.style.display = 'block';
+                    break;
+            }
+            
+            // ローカルストレージに保存
+            localStorage.setItem('aiMode', aiMode);
+            
+            console.log('AIモードが更新されました:', aiMode);
         }
 
         function updateModelSelection() {
@@ -1060,7 +1205,8 @@
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 websocket.send(JSON.stringify({
                     type: 'model_selection',
-                    models: selectedModels
+                    models: selectedModels,
+                    mode: aiMode
                 }));
             }
         }

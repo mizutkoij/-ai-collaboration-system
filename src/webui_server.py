@@ -19,6 +19,7 @@ import uvicorn
 
 from enhanced_ai_collaboration import EnhancedAICollaboration
 from user_interaction import UserInteractionManager
+from offline_simulator import OfflineAISimulator
 
 class ConversationManager:
     """会話の保存と管理"""
@@ -132,6 +133,7 @@ class WebUIServer:
         self.conversation_manager = ConversationManager()
         self.active_websockets = {}
         self.ai_system = None
+        self.offline_simulator = OfflineAISimulator()
         
         self._setup_routes()
         self._setup_middleware()
@@ -174,6 +176,8 @@ class WebUIServer:
             project_request = request.get("project_request", "")
             user_id = request.get("user_id", "default")
             models = request.get("models", {"openai": "gpt-4", "anthropic": "claude-3-sonnet-20240229", "gemini": "gemini-1.5-pro"})
+            
+            print(f"[DEBUG] Starting new conversation: project_request='{project_request}', user_id='{user_id}', models={models}")
             
             if not project_request:
                 raise HTTPException(status_code=400, detail="Project request is required")
@@ -235,6 +239,9 @@ class WebUIServer:
         message_type = data.get("type")
         content = data.get("content", "")
         
+        print(f"[DEBUG] Received WebSocket message: type={message_type}, content_length={len(content) if content else 0}")
+        print(f"[DEBUG] Full data: {data}")
+        
         if message_type == "user_message":
             # ユーザーメッセージを保存
             self.conversation_manager.add_message(
@@ -257,13 +264,20 @@ class WebUIServer:
             })
             
             # メッセージが実際のプロジェクトリクエストの場合、AI協調作業を開始
-            if content and len(content.strip()) > 10:  # 実際のリクエストと判断
+            content_length = len(content.strip()) if content else 0
+            print(f"[DEBUG] Checking if should start AI process: content_length={content_length}")
+            
+            if content and content_length > 5:  # 閾値を下げて、より短いメッセージでもAI処理を開始
+                print(f"[DEBUG] Starting AI process for message: '{content}'")
                 ai_data = {
                     "project_request": content,
+                    "ai_mode": data.get("ai_mode", "all"),
                     "mode": "full",
                     "models": models
                 }
                 await self._start_ai_process(conversation_id, ai_data, websocket)
+            else:
+                print(f"[DEBUG] Message too short, not starting AI process: '{content}'")
         
         elif message_type == "start_ai_collaboration":
             # AI協調作業を開始
@@ -313,17 +327,95 @@ class WebUIServer:
                 "data": conversation
             })
     
+    def _check_api_availability(self) -> Dict[str, bool]:
+        """APIキーの利用可能性をチェック"""
+        return {
+            "openai": bool(os.getenv("OPENAI_API_KEY")),
+            "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "gemini": bool(os.getenv("GEMINI_API_KEY"))
+        }
+    
+    def _has_required_apis(self, ai_mode: str, api_status: Dict[str, bool]) -> bool:
+        """選択されたAIモードに必要なAPIが利用可能かチェック"""
+        if ai_mode == "gpt-only":
+            return api_status["openai"]
+        elif ai_mode == "claude-only":
+            return api_status["anthropic"]  
+        elif ai_mode == "gemini-only":
+            return api_status["gemini"]
+        elif ai_mode == "all":
+            return any(api_status.values())  # 少なくとも1つのAPIが利用可能
+        return False
+    
+    async def _run_offline_simulation(self, conversation_id: str, project_request: str, websocket: WebSocket):
+        """オフラインモードでのシミュレーション実行"""
+        try:
+            print(f"[DEBUG] Running offline simulation for: '{project_request}'")
+            
+            await websocket.send_json({
+                "type": "system_message", 
+                "content": f"オフラインシミュレーションモードでプロジェクト「{project_request}」を開始します..."
+            })
+            
+            # オフライン応答を生成
+            response = self.offline_simulator.simulate_offline_response(project_request)
+            
+            # 応答をWebSocketに送信
+            await websocket.send_json({
+                "type": "ai_response",
+                "speaker": response["speaker"],
+                "content": response["message"],
+                "simulated": True
+            })
+            
+            # 会話に保存
+            self.conversation_manager.add_message(
+                conversation_id, response["speaker"], response["message"], 
+                {"simulated": True}
+            )
+            
+            await websocket.send_json({
+                "type": "ai_process_complete",
+                "status": "completed",
+                "mode": "offline"
+            })
+            
+        except Exception as e:
+            await websocket.send_json({
+                "type": "error",
+                "content": f"オフライン処理エラー: {str(e)}"
+            })
+    
     async def _start_ai_process(self, conversation_id: str, data: dict, websocket: WebSocket):
         """AI処理を開始"""
         
         try:
-            # AI システムを初期化
-            if not self.ai_system:
-                self.ai_system = EnhancedAICollaboration()
-            
             project_request = data.get("project_request", "")
             mode = data.get("mode", "full")
             models = data.get("models", {})
+            ai_mode = data.get("ai_mode", "all")  # 新しいAI協調モード
+            
+            print(f"[DEBUG] Starting AI process: conversation_id={conversation_id}, project_request='{project_request}', ai_mode='{ai_mode}'")
+            
+            # オフラインモードの場合
+            if ai_mode == "offline":
+                await self._run_offline_simulation(conversation_id, project_request, websocket)
+                return
+            
+            # API利用可能性チェック
+            api_status = self._check_api_availability()
+            if not self._has_required_apis(ai_mode, api_status):
+                # APIキーが不足している場合はオフラインモードに切り替え
+                await websocket.send_json({
+                    "type": "system_message",
+                    "content": f"選択されたモード「{ai_mode}」に必要なAPIキーが不足しています。オフラインシミュレーションモードに切り替えます。"
+                })
+                await self._run_offline_simulation(conversation_id, project_request, websocket)
+                return
+            
+            # AI システムを初期化
+            if not self.ai_system:
+                self.ai_system = EnhancedAICollaboration()
             
             # もしモデルが指定されていない場合、会話から取得
             if not models:
