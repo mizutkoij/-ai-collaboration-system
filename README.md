@@ -28,12 +28,27 @@
 
 ## 🚀 Quick Start
 
-### 📦 Option 1: Download Executable (Recommended)
-1. Download the latest release from [Releases](https://github.com/mizutkoij/-ai-collaboration-system/releases)
-2. Extract the portable package
-3. Run `🚀 Start AI Collaboration.bat` (Windows) or `./start.sh` (Linux/Mac)
-4. Open http://localhost:8080 in your browser
-5. Start collaborating with AI!
+### 📦 Option 1: 超シンプル版（APIキー不要・推奨）
+```bash
+# ワンクリック起動
+python ultra_simple_offline.py
+
+# または起動スクリプト使用
+# Windows: start_offline_ai.bat をダブルクリック
+# Linux/Mac: ./start_offline_ai.sh
+```
+- ✅ **APIキー完全不要**
+- ✅ **ブラウザ自動起動**
+- ✅ **完全オフライン動作**
+- ✅ **http://localhost:8084**
+
+### 📦 Option 2: 高機能版（APIキー使用可能）
+```bash
+python launch_webui.py
+```
+- 🌐 **http://localhost:8082**
+- 🔑 **APIキー使用可能**（なくても自動でオフラインモード）
+- 📊 **詳細な機能とモード選択**
 
 ### 🛠️ Option 2: Install from Source
 
